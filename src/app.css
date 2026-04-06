@@ -506,7 +506,7 @@
 }
 
 .feed-card--with-image::before {
-  opacity: 0.85;
+  opacity: 0.95;
 }
 
 .feed-card--with-image::after {
@@ -530,7 +530,7 @@
 }
 
 .feed-card--with-image:hover::before {
-  opacity: 0.95;
+  opacity: 1;
 }
 
 .feed-card__line {
