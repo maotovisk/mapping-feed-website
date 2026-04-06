@@ -198,7 +198,7 @@ export function FeedCard({ event, index }: FeedCardProps) {
                       <span
                         class="history-chip has-tooltip"
                         style={style}
-                        key={`${entry.action}:${entry.userId ?? entry.username ?? index}`}
+                        key={`${entry.action}:${entry.userId ?? entry.username ?? "unknown"}:${index}`}
                         title={historyTooltip}
                         aria-label={historyTooltip}
                         data-tooltip={historyTooltip}
