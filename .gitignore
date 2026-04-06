@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Tooling/cache
+.codex
+coverage
+*.tsbuildinfo
+.vite
