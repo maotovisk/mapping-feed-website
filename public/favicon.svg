@@ -1,19 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="title">
-  <title id="title">Mapping Feed favicon</title>
-  <defs>
-    <linearGradient id="mark" x1="276" y1="128" x2="276" y2="465" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#C95D9E" />
-      <stop offset="1" stop-color="#6D77D0" />
-    </linearGradient>
-  </defs>
-
-  <path
-    d="M76 392V230C76 172 114 132 168 132C222 132 260 172 260 230V392M260 230C260 172 294 132 344 132C394 132 428 172 428 230V392"
-    stroke="url(#mark)"
-    stroke-width="60"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
-  <rect x="476" y="126" width="24" height="198" rx="10" fill="url(#mark)" />
-  <circle cx="488" cy="406" r="16" fill="url(#mark)" />
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="1080" height="1080">
+	<defs>
+		<linearGradient id="g1" x2="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(840,910,-910,840,120,90)">
+			<stop offset="0" stop-color="#121d43"/>
+			<stop offset=".5" stop-color="#0a1330"/>
+			<stop offset="1" stop-color="#040817"/>
+		</linearGradient>
+		<radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(0,520,-520,0,550,460)">
+			<stop offset="0" stop-color="#7e4dff" stop-opacity=".24"/>
+			<stop offset="1" stop-color="#7e4dff" stop-opacity="0"/>
+		</radialGradient>
+		<linearGradient id="g3" x2="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(0,296.811,-363.568,0,536.7,408)">
+			<stop offset="0" stop-color="#c95d9e"/>
+			<stop offset="1" stop-color="#6d77d0"/>
+		</linearGradient>
+		<linearGradient id="g4" x2="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(0,360.725,-101.884,0,557.176,420.362)">
+			<stop offset="0" stop-color="#c95d9e"/>
+			<stop offset="1" stop-color="#6d77d0"/>
+		</linearGradient>
+		<linearGradient id="g5" x2="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(0,497.353,-497.353,0,503.618,209)">
+			<stop offset="0" stop-color="#c95d9e"/>
+			<stop offset="1" stop-color="#6d77d0"/>
+		</linearGradient>
+	</defs>
+	<style>
+		.s0 { fill: url(#g1) } 
+		.s1 { fill: url(#g2) } 
+		.s2 { fill: none;stroke: url(#g3);stroke-linecap: round;stroke-linejoin: round;stroke-width: 92 } 
+		.s3 { fill: url(#g4) } 
+		.s4 { fill: url(#g5) } 
+	</style>
+	<path fill-rule="evenodd" class="s0" d="m0 0h1080v1080h-1080z"/>
+	<path fill-rule="evenodd" class="s1" d="m550 980c-287.56 0-520-232.44-520-520 0-287.56 232.44-520 520-520 287.56 0 520 232.44 520 520 0 287.56-232.44 520-520 520z"/>
+	<g>
+		<path class="s2" d="m283 697v-187.46c0-58.58 36.88-101.54 88.5-101.54 51.63 0 88.5 42.96 88.5 101.54v187.46m0-187.46c0-58.58 36.88-101.54 88.5-101.54 51.63 0 88.5 42.96 88.5 101.54v187.46"/>
+		<path fill-rule="evenodd" class="s3" d="m798.76 371h30.48c12.02 0 21.76 8.5 21.76 18.99v224.02c0 10.49-9.74 18.99-21.76 18.99h-30.48c-12.02 0-21.76-8.5-21.76-18.99v-224.02c0-10.49 9.74-18.99 21.76-18.99z"/>
+		<path fill-rule="evenodd" class="s4" d="m812.5 743c-24.61 0-44.5-19.89-44.5-44.5 0-24.61 19.89-44.5 44.5-44.5 24.61 0 44.5 19.89 44.5 44.5 0 24.61-19.89 44.5-44.5 44.5z"/>
+	</g>
 </svg>
