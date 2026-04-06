@@ -1,0 +1,13 @@
+export type IconName =
+  | 'message-circle'
+  | 'rotate-ccw'
+  | 'heart'
+  | 'heart-crack'
+  | 'sparkles'
+  | 'circle-slash'
+  | 'user-plus'
+  | 'user-minus'
+  | 'users'
+  | 'clock'
+  | 'refresh'
+  | 'layers'
