@@ -269,6 +269,8 @@ export function useFeedEvents() {
 
   const initialLoading =
     activeFeed === 'map' ? mapState.initialLoading : groupState.initialLoading
+  const activeLastSyncedAt =
+    activeFeed === 'map' ? mapState.lastSyncedAt : groupState.lastSyncedAt
 
   return {
     activeFeed,
@@ -278,6 +280,7 @@ export function useFeedEvents() {
     activeHasMore,
     activeLoadingMore,
     initialLoading,
+    activeLastSyncedAt,
     loadOlderForActiveFeed,
     mapFilters,
     setMapFilters,

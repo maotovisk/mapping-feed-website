@@ -3,7 +3,9 @@ import type { FeedEventViewEntryDto } from "../dto/feed";
 import type { EventType } from "../dto/feed";
 import type { EventTheme } from "../types/feed";
 
-const RELATIVE_TIME_FORMATTER = new Intl.RelativeTimeFormat();
+const RELATIVE_TIME_FORMATTER = new Intl.RelativeTimeFormat("en-US", {
+  numeric: "auto",
+});
 
 export const eventKey = (event: FeedEventViewEntryDto): string =>
   `${event.feedType}:${event.eventId}`;

@@ -13,7 +13,7 @@ import { FeedCard } from "./components/feed/feed-card";
 import { AppIcon } from "./components/icons/app-icon";
 import { useFeedEvents } from "./hooks/use-feed-events";
 import type { MapEventTypeFilter, RulesetFilter } from "./types/feed";
-import { eventKey } from "./utils/feed-utils";
+import { eventKey, formatRelativeTime } from "./utils/feed-utils";
 import "./app.css";
 
 const BACKEND_REPO_URL =
@@ -113,6 +113,7 @@ export function App() {
     activeHasMore,
     activeLoadingMore,
     initialLoading,
+    activeLastSyncedAt,
     loadOlderForActiveFeed,
     mapFilters,
     setMapFilters,
@@ -123,6 +124,7 @@ export function App() {
   const [cursorGlow, setCursorGlow] = useState({ x: 0, y: 0 });
   const [mapEventDropdownOpen, setMapEventDropdownOpen] = useState(false);
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
+  const [syncClock, setSyncClock] = useState(() => Date.now());
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const mapDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -243,6 +245,16 @@ export function App() {
     setMapEventDropdownOpen(false);
     setGroupDropdownOpen(false);
   }, [activeFeed]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setSyncClock(Date.now());
+    }, 1_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const pageStyle = {
     "--cursor-x": `${cursorGlow.x}px`,
@@ -426,6 +438,28 @@ export function App() {
     mapFilters.ruleset !== null || mapFilters.eventTypes.length > 0;
   const groupFiltersActive =
     groupFilters.playmode !== null || groupFilters.groupIds.length > 0;
+
+  const syncStatus = useMemo(() => {
+    const feedLabel = activeFeed === "map" ? "Maps" : "Groups";
+    const hasSynced = typeof activeLastSyncedAt === "number";
+    const relativeSyncTime = hasSynced
+      ? formatRelativeTime(new Date(activeLastSyncedAt).toISOString())
+      : null;
+    const text = relativeSyncTime
+      ? `last updated at ${relativeSyncTime}`
+      : "last updated at --";
+    const title = activeError
+      ? activeError
+      : initialLoading && !hasSynced
+        ? `${feedLabel} feed is syncing`
+        : `${feedLabel} feed`;
+
+    return {
+      tone: "default",
+      text,
+      title,
+    };
+  }, [activeError, activeFeed, activeLastSyncedAt, initialLoading, syncClock]);
 
   return (
     <div class="page" style={pageStyle}>
@@ -745,6 +779,16 @@ export function App() {
           <p class="loading-more">Loading older events...</p>
         )}
       </main>
+
+      <div
+        class={`sync-status sync-status--${syncStatus.tone}`}
+        role="status"
+        aria-live="polite"
+        title={syncStatus.title}
+      >
+        <span class="sync-status__dot" aria-hidden="true"></span>
+        <span class="sync-status__detail">{syncStatus.text}</span>
+      </div>
     </div>
   );
 }
