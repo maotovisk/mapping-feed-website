@@ -1,4 +1,5 @@
 import type { FeedEnvelopeDto, FeedEventViewEntryDto, FeedKey } from '../dto/feed'
+import type { GroupFeedFilters, MapFeedFilters } from '../types/feed'
 
 const API_ROOT = (
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || '/api'
@@ -12,6 +13,48 @@ const FEED_ENDPOINT: Record<FeedKey, string> = {
 interface FeedRequest {
   limit: number
   cursor?: string | null
+  filters?: MapFeedFilters | GroupFeedFilters
+}
+
+const appendMapFilters = (
+  params: URLSearchParams,
+  filters: MapFeedFilters | undefined,
+) => {
+  if (!filters) {
+    return
+  }
+
+  if (filters.ruleset) {
+    params.set('ruleset', filters.ruleset)
+  }
+
+  for (const eventType of filters.eventTypes) {
+    params.append('event_type', eventType)
+  }
+
+  const text = filters.text.trim()
+  if (text.length > 0) {
+    params.set('text', text)
+  }
+}
+
+const appendGroupFilters = (
+  params: URLSearchParams,
+  filters: GroupFeedFilters | undefined,
+) => {
+  if (!filters) {
+    return
+  }
+
+  if (filters.playmode) {
+    params.set('playmode', filters.playmode)
+  }
+
+  for (const groupId of filters.groupIds) {
+    if (groupId > 0) {
+      params.append('group_id', String(groupId))
+    }
+  }
 }
 
 function normalizeEnvelope(
@@ -35,6 +78,12 @@ export async function fetchFeedPage(
 
   if (request.cursor) {
     params.set('cursor', request.cursor)
+  }
+
+  if (feed === 'map') {
+    appendMapFilters(params, request.filters as MapFeedFilters | undefined)
+  } else {
+    appendGroupFilters(params, request.filters as GroupFeedFilters | undefined)
   }
 
   const response = await fetch(`${FEED_ENDPOINT[feed]}?${params.toString()}`)

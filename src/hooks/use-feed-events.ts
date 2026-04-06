@@ -7,17 +7,45 @@ import {
   POLL_LIMIT,
 } from '../constants/feed'
 import type { FeedKey } from '../dto/feed'
-import type { ActiveFeed, FeedState } from '../types/feed'
+import type {
+  ActiveFeed,
+  FeedState,
+  GroupFeedFilters,
+  MapFeedFilters,
+} from '../types/feed'
 import { fetchFeedPage } from '../services/feed-api.service'
 import { mergeEvents, sortEventsNewestFirst } from '../utils/feed-utils'
+
+const MAP_FILTERS_DEFAULT: MapFeedFilters = {
+  ruleset: null,
+  eventTypes: [],
+  text: '',
+}
+
+const GROUP_FILTERS_DEFAULT: GroupFeedFilters = {
+  playmode: null,
+  groupIds: [],
+}
 
 export function useFeedEvents() {
   const [activeFeed, setActiveFeed] = useState<ActiveFeed>('map')
   const [mapState, setMapState] = useState<FeedState>(FEED_STATE_DEFAULT)
   const [groupState, setGroupState] = useState<FeedState>(FEED_STATE_DEFAULT)
+  const [mapFilters, setMapFilters] = useState<MapFeedFilters>(
+    MAP_FILTERS_DEFAULT,
+  )
+  const [groupFilters, setGroupFilters] = useState<GroupFeedFilters>(
+    GROUP_FILTERS_DEFAULT,
+  )
 
   const mapRef = useRef(mapState)
   const groupRef = useRef(groupState)
+  const mapFiltersRef = useRef(mapFilters)
+  const groupFiltersRef = useRef(groupFilters)
+  const requestVersionRef = useRef<Record<FeedKey, number>>({
+    map: 0,
+    group: 0,
+  })
 
   useEffect(() => {
     mapRef.current = mapState
@@ -26,6 +54,14 @@ export function useFeedEvents() {
   useEffect(() => {
     groupRef.current = groupState
   }, [groupState])
+
+  useEffect(() => {
+    mapFiltersRef.current = mapFilters
+  }, [mapFilters])
+
+  useEffect(() => {
+    groupFiltersRef.current = groupFilters
+  }, [groupFilters])
 
   const patchFeedState = useCallback(
     (feed: FeedKey, updater: (previous: FeedState) => FeedState) => {
@@ -39,40 +75,81 @@ export function useFeedEvents() {
     [],
   )
 
+  const getRequestVersion = useCallback((feed: FeedKey): number => {
+    return requestVersionRef.current[feed]
+  }, [])
+
+  const bumpRequestVersion = useCallback((feed: FeedKey): number => {
+    const nextVersion = requestVersionRef.current[feed] + 1
+    requestVersionRef.current[feed] = nextVersion
+    return nextVersion
+  }, [])
+
+  const getFiltersForFeed = useCallback(
+    (feed: FeedKey): MapFeedFilters | GroupFeedFilters => {
+      if (feed === 'map') {
+        return mapFiltersRef.current
+      }
+
+      return groupFiltersRef.current
+    },
+    [],
+  )
+
   const loadInitialFeed = useCallback(
-    async (feed: FeedKey) => {
-      patchFeedState(feed, (previous) => ({
-        ...previous,
+    async (feed: FeedKey, filters: MapFeedFilters | GroupFeedFilters) => {
+      const requestVersion = bumpRequestVersion(feed)
+
+      patchFeedState(feed, () => ({
+        ...FEED_STATE_DEFAULT,
         initialLoading: true,
-        error: null,
       }))
 
       try {
-        const payload = await fetchFeedPage(feed, { limit: INITIAL_LIMIT })
+        const payload = await fetchFeedPage(feed, {
+          limit: INITIAL_LIMIT,
+          filters,
+        })
 
-        patchFeedState(feed, (previous) => ({
-          ...previous,
-          initialLoading: false,
+        if (getRequestVersion(feed) !== requestVersion) {
+          return
+        }
+
+        patchFeedState(feed, () => ({
+          ...FEED_STATE_DEFAULT,
           items: sortEventsNewestFirst(payload.items),
           nextCursor: payload.nextCursor,
           error: null,
           lastSyncedAt: Date.now(),
         }))
       } catch (error) {
-        patchFeedState(feed, (previous) => ({
-          ...previous,
-          initialLoading: false,
+        if (getRequestVersion(feed) !== requestVersion) {
+          return
+        }
+
+        patchFeedState(feed, () => ({
+          ...FEED_STATE_DEFAULT,
           error: error instanceof Error ? error.message : `Failed to load ${feed} feed`,
         }))
       }
     },
-    [patchFeedState],
+    [bumpRequestVersion, getRequestVersion, patchFeedState],
   )
 
   const pollFeed = useCallback(
     async (feed: FeedKey) => {
+      const requestVersion = getRequestVersion(feed)
+      const filters = getFiltersForFeed(feed)
+
       try {
-        const payload = await fetchFeedPage(feed, { limit: POLL_LIMIT })
+        const payload = await fetchFeedPage(feed, {
+          limit: POLL_LIMIT,
+          filters,
+        })
+
+        if (getRequestVersion(feed) !== requestVersion) {
+          return
+        }
 
         patchFeedState(feed, (previous) => {
           const merged = mergeEvents(previous.items, payload.items)
@@ -87,13 +164,17 @@ export function useFeedEvents() {
           }
         })
       } catch (error) {
+        if (getRequestVersion(feed) !== requestVersion) {
+          return
+        }
+
         patchFeedState(feed, (previous) => ({
           ...previous,
           error: error instanceof Error ? error.message : `Failed to refresh ${feed} feed`,
         }))
       }
     },
-    [patchFeedState],
+    [getFiltersForFeed, getRequestVersion, patchFeedState],
   )
 
   const loadOlder = useCallback(
@@ -102,6 +183,9 @@ export function useFeedEvents() {
       if (!current.nextCursor || current.loadingMore || current.initialLoading) {
         return
       }
+
+      const requestVersion = getRequestVersion(feed)
+      const filters = getFiltersForFeed(feed)
 
       patchFeedState(feed, (previous) => ({
         ...previous,
@@ -113,7 +197,12 @@ export function useFeedEvents() {
         const payload = await fetchFeedPage(feed, {
           limit: PAGE_LIMIT,
           cursor: current.nextCursor,
+          filters,
         })
+
+        if (getRequestVersion(feed) !== requestVersion) {
+          return
+        }
 
         patchFeedState(feed, (previous) => ({
           ...previous,
@@ -124,6 +213,10 @@ export function useFeedEvents() {
           lastSyncedAt: Date.now(),
         }))
       } catch (error) {
+        if (getRequestVersion(feed) !== requestVersion) {
+          return
+        }
+
         patchFeedState(feed, (previous) => ({
           ...previous,
           loadingMore: false,
@@ -134,7 +227,7 @@ export function useFeedEvents() {
         }))
       }
     },
-    [patchFeedState],
+    [getFiltersForFeed, getRequestVersion, patchFeedState],
   )
 
   const loadOlderForActiveFeed = useCallback(async () => {
@@ -142,8 +235,12 @@ export function useFeedEvents() {
   }, [activeFeed, loadOlder])
 
   useEffect(() => {
-    void Promise.all([loadInitialFeed('map'), loadInitialFeed('group')])
-  }, [loadInitialFeed])
+    void loadInitialFeed('map', mapFilters)
+  }, [loadInitialFeed, mapFilters])
+
+  useEffect(() => {
+    void loadInitialFeed('group', groupFilters)
+  }, [groupFilters, loadInitialFeed])
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -182,5 +279,9 @@ export function useFeedEvents() {
     activeLoadingMore,
     initialLoading,
     loadOlderForActiveFeed,
+    mapFilters,
+    setMapFilters,
+    groupFilters,
+    setGroupFilters,
   }
 }
