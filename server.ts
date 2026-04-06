@@ -52,11 +52,24 @@ const proxyApiRequest = async (request: Request, pathname: string): Promise<Resp
   headers.delete('host')
 
   try {
-    return await fetch(targetUrl, {
+    const upstream = await fetch(targetUrl, {
       method: request.method,
       headers,
       body: request.body,
       redirect: 'manual',
+    })
+
+    // Bun may transparently decode upstream bodies while preserving encoding headers.
+    // Normalize headers to avoid browser "Decoding failed" errors on proxied JSON.
+    const responseHeaders = new Headers(upstream.headers)
+    responseHeaders.delete('content-encoding')
+    responseHeaders.delete('content-length')
+    responseHeaders.delete('transfer-encoding')
+
+    return new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: responseHeaders,
     })
   } catch {
     return Response.json(
