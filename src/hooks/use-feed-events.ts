@@ -41,6 +41,7 @@ const MAP_EVENT_TYPE_VALUES: MapEventTypeFilter[] = [
 
 const RULESET_SET = new Set<RulesetFilter>(RULESET_VALUES)
 const MAP_EVENT_TYPE_SET = new Set<MapEventTypeFilter>(MAP_EVENT_TYPE_VALUES)
+const PREFERRED_RULESET_STORAGE_KEY = 'mappingfeed.preferred-ruleset'
 
 const parseRuleset = (value: string | null): RulesetFilter | null => {
   if (!value) {
@@ -98,18 +99,35 @@ const readInitialFiltersFromUrl = (): {
   const params = new URLSearchParams(window.location.search)
   const feedParam = params.get('feed')
   const activeFeed: ActiveFeed = feedParam === 'group' ? 'group' : 'map'
+  let preferredRuleset: RulesetFilter | null = null
+
+  try {
+    preferredRuleset = parseRuleset(
+      window.localStorage.getItem(PREFERRED_RULESET_STORAGE_KEY),
+    )
+  } catch {
+    preferredRuleset = null
+  }
 
   const mapText = params.get('mq')?.trim() ?? ''
+  const sharedRulesetFromUrl = parseRuleset(params.get('r'))
+  const mapRulesetFromUrl = parseRuleset(params.get('mr'))
+  const groupPlaymodeFromUrl = parseRuleset(params.get('gp'))
+  const sharedRuleset =
+    sharedRulesetFromUrl ??
+    mapRulesetFromUrl ??
+    groupPlaymodeFromUrl ??
+    preferredRuleset
 
   return {
     activeFeed,
     mapFilters: {
-      ruleset: parseRuleset(params.get('mr')),
+      ruleset: sharedRuleset,
       eventTypes: parseMapEventTypes(params.get('me')),
       text: mapText,
     },
     groupFilters: {
-      playmode: parseRuleset(params.get('gp')),
+      playmode: sharedRuleset,
       groupIds: parseGroupIds(params.get('gg')),
     },
   }
@@ -245,14 +263,13 @@ export function useFeedEvents() {
 
         patchFeedState(feed, (previous) => {
           const merged = mergeEvents(previous.items, payload.items)
-          const didGrow = merged.length > previous.items.length
 
           return {
             ...previous,
             items: merged,
             nextCursor: previous.nextCursor ?? payload.nextCursor,
             error: null,
-            lastSyncedAt: didGrow ? Date.now() : previous.lastSyncedAt,
+            lastSyncedAt: Date.now(),
           }
         })
       } catch (error) {
@@ -349,11 +366,35 @@ export function useFeedEvents() {
       return
     }
 
+    const preferredRuleset =
+      (activeFeed === 'map' ? mapFilters.ruleset : groupFilters.playmode) ??
+      (activeFeed === 'map' ? groupFilters.playmode : mapFilters.ruleset)
+
+    try {
+      if (preferredRuleset) {
+        window.localStorage.setItem(
+          PREFERRED_RULESET_STORAGE_KEY,
+          preferredRuleset,
+        )
+      } else {
+        window.localStorage.removeItem(PREFERRED_RULESET_STORAGE_KEY)
+      }
+    } catch {
+      // Ignore storage failures (private mode / permissions).
+    }
+  }, [activeFeed, groupFilters.playmode, mapFilters.ruleset])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
     const params = new URLSearchParams()
     params.set('feed', activeFeed)
 
-    if (mapFilters.ruleset) {
-      params.set('mr', mapFilters.ruleset)
+    const sharedRuleset = mapFilters.ruleset ?? groupFilters.playmode
+    if (sharedRuleset) {
+      params.set('r', sharedRuleset)
     }
 
     if (mapFilters.eventTypes.length > 0) {
@@ -363,10 +404,6 @@ export function useFeedEvents() {
     const mapText = mapFilters.text.trim()
     if (mapText) {
       params.set('mq', mapText)
-    }
-
-    if (groupFilters.playmode) {
-      params.set('gp', groupFilters.playmode)
     }
 
     if (groupFilters.groupIds.length > 0) {

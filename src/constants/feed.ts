@@ -14,12 +14,12 @@ export const EVENT_THEMES: Record<EventType, EventTheme> = {
   },
   Ranked: {
     label: 'Ranked',
-    color: '#f1c40f',
+    color: '#2fd082',
     icon: 'sparkles',
   },
   NominationReset: {
     label: 'Nomination Reset',
-    color: '#f39c12',
+    color: '#95a5a6',
     icon: 'rotate-ccw',
   },
   Unranked: {
@@ -29,7 +29,7 @@ export const EVENT_THEMES: Record<EventType, EventTheme> = {
   },
   Disqualification: {
     label: 'Disqualified',
-    color: '#e74c3c',
+    color: '#ffa126',
     icon: 'heart-crack',
   },
   GroupAdd: {

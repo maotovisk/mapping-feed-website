@@ -14,7 +14,7 @@ import { FeedCard } from "./components/feed/feed-card";
 import { AppIcon } from "./components/icons/app-icon";
 import { useFeedEvents } from "./hooks/use-feed-events";
 import type { MapEventTypeFilter, RulesetFilter } from "./types/feed";
-import { eventKey, formatRelativeTime } from "./utils/feed-utils";
+import { eventKey } from "./utils/feed-utils";
 
 const BACKEND_REPO_URL =
   (import.meta.env.VITE_BACKEND_REPO_URL as string | undefined)?.trim() ||
@@ -212,11 +212,25 @@ export function App() {
   const [cursorGlow, setCursorGlow] = useState({ x: 0, y: 0 });
   const [mapEventDropdownOpen, setMapEventDropdownOpen] = useState(false);
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
-  const [syncClock, setSyncClock] = useState(() => Date.now());
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isPageFocused, setIsPageFocused] = useState(() =>
+    typeof document === "undefined"
+      ? true
+      : document.visibilityState === "visible" && document.hasFocus(),
+  );
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const mapDropdownRef = useRef<HTMLDivElement | null>(null);
   const groupDropdownRef = useRef<HTMLDivElement | null>(null);
+  const baseTitleRef = useRef("");
+  const seenEventKeysByFeedRef = useRef({
+    map: new Set<string>(),
+    group: new Set<string>(),
+  });
+  const hasSeededSeenByFeedRef = useRef({
+    map: false,
+    group: false,
+  });
 
   useEffect(() => {
     setCursorGlow({
@@ -335,14 +349,75 @@ export function App() {
   }, [activeFeed]);
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setSyncClock(Date.now());
-    }, 1_000);
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return;
+    }
+
+    baseTitleRef.current = document.title;
+
+    const updateFocusState = () => {
+      const focused =
+        document.visibilityState === "visible" && document.hasFocus();
+      setIsPageFocused(focused);
+      if (focused) {
+        setUnreadCount(0);
+      }
+    };
+
+    updateFocusState();
+    window.addEventListener("focus", updateFocusState);
+    window.addEventListener("blur", updateFocusState);
+    document.addEventListener("visibilitychange", updateFocusState);
 
     return () => {
-      window.clearInterval(intervalId);
+      window.removeEventListener("focus", updateFocusState);
+      window.removeEventListener("blur", updateFocusState);
+      document.removeEventListener("visibilitychange", updateFocusState);
+
+      if (baseTitleRef.current) {
+        document.title = baseTitleRef.current;
+      }
     };
   }, []);
+
+  useEffect(() => {
+    const seenByFeed = seenEventKeysByFeedRef.current;
+    const seededByFeed = hasSeededSeenByFeedRef.current;
+    const activeSeenSet = seenByFeed[activeFeed];
+
+    if (!seededByFeed[activeFeed]) {
+      for (const item of visibleItems) {
+        activeSeenSet.add(eventKey(item));
+      }
+      seededByFeed[activeFeed] = true;
+      return;
+    }
+
+    let newlySeenCount = 0;
+    for (const item of visibleItems) {
+      const key = eventKey(item);
+      if (activeSeenSet.has(key)) {
+        continue;
+      }
+
+      activeSeenSet.add(key);
+      newlySeenCount += 1;
+    }
+
+    if (!isPageFocused && newlySeenCount > 0) {
+      setUnreadCount((previous) => previous + newlySeenCount);
+    }
+  }, [activeFeed, isPageFocused, visibleItems]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const baseTitle = baseTitleRef.current || document.title;
+    document.title =
+      unreadCount > 0 ? `(${unreadCount}) ${baseTitle}` : baseTitle;
+  }, [unreadCount]);
 
   const cursorGlowStyle = {
     background: `
@@ -472,6 +547,17 @@ export function App() {
         ruleset,
       };
     });
+
+    setGroupFilters((previous) => {
+      if (previous.playmode === ruleset) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        playmode: ruleset,
+      };
+    });
   };
 
   const handleMapEventTypeToggle = (eventType: MapEventTypeFilter) => {
@@ -494,6 +580,17 @@ export function App() {
   };
 
   const handleGroupPlaymodeChange = (playmode: RulesetFilter | null) => {
+    setMapFilters((previous) => {
+      if (previous.ruleset === playmode) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        ruleset: playmode,
+      };
+    });
+
     setGroupFilters((previous) => {
       if (previous.playmode === playmode) {
         return previous;
@@ -527,13 +624,22 @@ export function App() {
       eventTypes: [],
       text: "",
     });
+    setGroupFilters((previous) => ({
+      ...previous,
+      playmode: null,
+    }));
   };
 
   const resetGroupFilters = () => {
-    setGroupFilters({
+    setMapFilters((previous) => ({
+      ...previous,
+      ruleset: null,
+    }));
+    setGroupFilters((previous) => ({
+      ...previous,
       playmode: null,
       groupIds: [],
-    });
+    }));
   };
 
   const mapFiltersActive =
@@ -556,26 +662,13 @@ export function App() {
     transform: `translateX(${activeFeed === "group" ? "100%" : "0%"})`,
   } as CSSProperties;
 
-  const syncStatus = useMemo(() => {
-    const feedLabel = activeFeed === "map" ? "Maps" : "Groups";
-    const hasSynced = typeof activeLastSyncedAt === "number";
-    const relativeSyncTime = hasSynced
-      ? formatRelativeTime(new Date(activeLastSyncedAt).toISOString())
-      : null;
-    const text = relativeSyncTime
-      ? `last updated at ${relativeSyncTime}`
-      : "last updated at --";
-    const title = activeError
-      ? activeError
-      : initialLoading && !hasSynced
-        ? `${feedLabel} feed is syncing`
-        : `${feedLabel} feed`;
+  const lastSyncTooltip = useMemo(() => {
+    if (typeof activeLastSyncedAt !== "number") {
+      return "Last fetch: --";
+    }
 
-    return {
-      text,
-      title,
-    };
-  }, [activeError, activeFeed, activeLastSyncedAt, initialLoading, syncClock]);
+    return `Last fetch: ${new Date(activeLastSyncedAt).toLocaleString()}`;
+  }, [activeLastSyncedAt]);
 
   return (
     <div class="relative min-h-screen overflow-hidden px-5 pb-14 pt-10 max-[960px]:px-3 max-[960px]:pt-6">
@@ -1015,17 +1108,22 @@ export function App() {
       </main>
 
       <div
-        class="fixed bottom-[max(12px,env(safe-area-inset-bottom,0px))] right-[clamp(12px,2.2vw,28px)] z-[18] inline-flex min-h-[30px] max-w-[min(92vw,380px)] items-center gap-1.5 rounded-[10px] border border-[#8ea5d63d] bg-[#080f23a8] px-2.5 py-1.5 text-[#bdceef] shadow-[0_6px_16px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(238,245,255,0.06)] backdrop-blur-[6px]"
+        class="group/live fixed bottom-[max(12px,env(safe-area-inset-bottom,0px))] right-[clamp(12px,2.2vw,28px)] z-[18] inline-flex min-h-[30px] max-w-[min(92vw,380px)] items-center gap-1.5 rounded-[10px] border border-[#5bb9874d] bg-[#071825c7] px-2.5 py-1.5 text-[#c7f9dd] shadow-[0_6px_16px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(226,255,241,0.08)] backdrop-blur-[6px]"
         role="status"
         aria-live="polite"
-        title={syncStatus.title}
+        title={lastSyncTooltip}
       >
         <span
-          class="h-[7px] w-[7px] shrink-0 rounded-full bg-[#93a5ca] shadow-[0_0_0_3px_color-mix(in_srgb,#93a5ca_16%,transparent)]"
+          class="h-[7px] w-[7px] shrink-0 rounded-full bg-[#4ade80] shadow-[0_0_0_3px_color-mix(in_srgb,#4ade80_22%,transparent)]"
           aria-hidden="true"
         ></span>
-        <span class={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[#c2d4fa] ${TEXT_STYLE.caption}`}>
-          {syncStatus.text}
+        <span
+          class={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[#c7f9dd] ${TEXT_STYLE.caption}`}
+        >
+          live updated
+        </span>
+        <span class="pointer-events-none absolute bottom-full right-0 z-30 mb-2 whitespace-nowrap rounded-lg border border-[#85d7ab66] bg-[#041120f7] px-2 py-1 text-xs font-semibold text-[#d7ffe8] opacity-0 invisible translate-y-1 transition-all duration-200 ease-out group-hover/live:visible group-hover/live:opacity-100 group-hover/live:translate-y-0">
+          {lastSyncTooltip}
         </span>
       </div>
     </div>
