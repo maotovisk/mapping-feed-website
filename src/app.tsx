@@ -85,6 +85,97 @@ const MAP_EVENT_TYPE_ORDER = new Map(
   MAP_EVENT_TYPE_OPTIONS.map((option, index) => [option.value, index]),
 );
 
+const BACKGROUND_AMBIENT_ORBS = [
+  {
+    left: 8,
+    top: 16,
+    size: 260,
+    opacity: 0.36,
+    driftX: 26,
+    driftY: -18,
+    duration: 38,
+    pulseDuration: 32,
+    delay: -6,
+  },
+  {
+    left: 22,
+    top: 74,
+    size: 300,
+    opacity: 0.28,
+    driftX: -30,
+    driftY: 22,
+    duration: 44,
+    pulseDuration: 36,
+    delay: -13,
+  },
+  {
+    left: 34,
+    top: 34,
+    size: 220,
+    opacity: 0.33,
+    driftX: 18,
+    driftY: 24,
+    duration: 34,
+    pulseDuration: 30,
+    delay: -9,
+  },
+  {
+    left: 48,
+    top: 82,
+    size: 280,
+    opacity: 0.31,
+    driftX: -24,
+    driftY: -14,
+    duration: 41,
+    pulseDuration: 39,
+    delay: -16,
+  },
+  {
+    left: 62,
+    top: 20,
+    size: 320,
+    opacity: 0.34,
+    driftX: 34,
+    driftY: 12,
+    duration: 46,
+    pulseDuration: 35,
+    delay: -11,
+  },
+  {
+    left: 74,
+    top: 58,
+    size: 250,
+    opacity: 0.27,
+    driftX: -22,
+    driftY: 20,
+    duration: 37,
+    pulseDuration: 33,
+    delay: -4,
+  },
+  {
+    left: 88,
+    top: 30,
+    size: 290,
+    opacity: 0.3,
+    driftX: 20,
+    driftY: -20,
+    duration: 43,
+    pulseDuration: 40,
+    delay: -19,
+  },
+  {
+    left: 14,
+    top: 48,
+    size: 240,
+    opacity: 0.29,
+    driftX: -16,
+    driftY: -24,
+    duration: 35,
+    pulseDuration: 31,
+    delay: -8,
+  },
+] as const;
+
 const formatGroupTag = (
   groupId: number,
   groupName: string | null,
@@ -130,7 +221,7 @@ export function App() {
   useEffect(() => {
     setCursorGlow({
       x: window.innerWidth * 0.5,
-      y: window.innerHeight * 0.35,
+      y: window.innerHeight * 0.45,
     });
 
     let animationFrame = 0;
@@ -253,27 +344,19 @@ export function App() {
     };
   }, []);
 
-  const bgGlowStyle = {
+  const cursorGlowStyle = {
     background: `
-      radial-gradient(780px circle at ${cursorGlow.x}px ${cursorGlow.y}px, rgba(111, 96, 255, 0.2), transparent 58%),
-      radial-gradient(620px circle at 8% 0%, rgba(39, 120, 255, 0.22), transparent 62%),
-      radial-gradient(720px circle at 84% 7%, rgba(120, 59, 255, 0.2), transparent 64%),
-      linear-gradient(180deg, #050b1a 0%, #060e1f 56%, #071225 100%)
+      radial-gradient(300px circle at ${cursorGlow.x}px ${cursorGlow.y}px, rgba(47, 69, 146, 0.28), rgba(16, 28, 72, 0.2) 40%, transparent 72%),
+      radial-gradient(500px circle at ${cursorGlow.x}px ${cursorGlow.y}px, rgba(24, 43, 104, 0.2), transparent 72%)
     `,
   } as CSSProperties;
 
   const gridLayerStyle = {
     backgroundImage:
-      "linear-gradient(rgba(158, 186, 255, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(158, 186, 255, 0.06) 1px, transparent 1px)",
-    backgroundSize: "72px 72px",
+      "linear-gradient(rgba(95, 117, 178, 0.065) 1px, transparent 1px), linear-gradient(90deg, rgba(95, 117, 178, 0.065) 1px, transparent 1px)",
+    backgroundSize: "76px 76px",
     maskImage:
-      "linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 1) 25%)",
-  } as CSSProperties;
-
-  const noiseStyle = {
-    backgroundImage:
-      "radial-gradient(rgba(255, 255, 255, 0.18) 0.35px, transparent 0.35px)",
-    backgroundSize: "3px 3px",
+      "linear-gradient(180deg, rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.92) 24%, rgba(0, 0, 0, 0.92) 84%, rgba(0, 0, 0, 0.18))",
   } as CSSProperties;
 
   const menuStyle = {
@@ -497,18 +580,39 @@ export function App() {
   return (
     <div class="relative min-h-screen overflow-hidden px-5 pb-14 pt-10 max-[960px]:px-3 max-[960px]:pt-6">
       <div
-        class="pointer-events-none fixed inset-0 -z-20"
-        style={bgGlowStyle}
+        class="animated-bg-aurora pointer-events-none fixed inset-0 -z-20"
         aria-hidden="true"
       ></div>
       <div
-        class="pointer-events-none fixed inset-0 -z-10"
+        class="animated-bg-cursor-orb pointer-events-none fixed inset-0 -z-10 opacity-95"
+        style={cursorGlowStyle}
+        aria-hidden="true"
+      ></div>
+      <div class="animated-bg-orb-field fixed inset-0 -z-10" aria-hidden="true">
+        {BACKGROUND_AMBIENT_ORBS.map((orb, index) => (
+          <span
+            key={`ambient-orb-${index}`}
+            class="animated-bg-floating-orb"
+            style={
+              {
+                left: `${orb.left}%`,
+                top: `${orb.top}%`,
+                width: `${orb.size}px`,
+                height: `${orb.size}px`,
+                "--orb-opacity": `${orb.opacity}`,
+                "--orb-drift-x": `${orb.driftX}px`,
+                "--orb-drift-y": `${orb.driftY}px`,
+                "--orb-duration": `${orb.duration}s`,
+                "--orb-pulse-duration": `${orb.pulseDuration}s`,
+                "--orb-delay": `${orb.delay}s`,
+              } as CSSProperties
+            }
+          ></span>
+        ))}
+      </div>
+      <div
+        class="pointer-events-none fixed inset-0 -z-10 opacity-56"
         style={gridLayerStyle}
-        aria-hidden="true"
-      ></div>
-      <div
-        class="pointer-events-none fixed inset-0 z-10 opacity-25 mix-blend-soft-light"
-        style={noiseStyle}
         aria-hidden="true"
       ></div>
 
