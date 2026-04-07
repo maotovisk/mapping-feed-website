@@ -25,12 +25,14 @@ export interface FeedEventActorDto {
   username: string | null
   avatarUrl: string | null
   badge: string | null
+  color: string | null
 }
 
 export interface FeedMapHistoryActionDto {
   action: string
   userId: number | null
   username: string | null
+  userColor: string | null
 }
 
 export interface FeedMapEventViewDataDto {
@@ -49,6 +51,7 @@ export interface FeedGroupEventViewDataDto {
   userName: string
   groupId: number
   groupName: string
+  groupColor: string | null
   playmodes: string[]
   userUrl: string
   groupUrl: string

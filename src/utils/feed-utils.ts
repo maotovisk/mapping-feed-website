@@ -122,22 +122,17 @@ export const getEventTheme = (eventType: string): EventTheme => {
 
 export const buildModesTag = (modes: string[]): string => {
   if (modes.length === 0) {
-    return "[osu]";
+    return "osu";
   }
 
-  return modes.map((mode) => `[${mode}]`).join("");
+  return modes.join(" • ");
 };
 
 export const buildActorLabel = (
   event: FeedEventViewEntryDto,
 ): string | null => {
   const actorName = event.actor?.username?.trim();
-  if (!actorName) {
-    return null;
-  }
-
-  const badge = event.actor?.badge?.trim();
-  return badge ? `${actorName} [${badge}]` : actorName;
+  return actorName || null;
 };
 
 export const buildMapFooter = (event: FeedEventViewEntryDto): string | null => {

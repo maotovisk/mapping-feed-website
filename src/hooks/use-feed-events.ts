@@ -11,7 +11,9 @@ import type {
   ActiveFeed,
   FeedState,
   GroupFeedFilters,
+  MapEventTypeFilter,
   MapFeedFilters,
+  RulesetFilter,
 } from '../types/feed'
 import { fetchFeedPage } from '../services/feed-api.service'
 import { mergeEvents, sortEventsNewestFirst } from '../utils/feed-utils'
@@ -27,15 +29,105 @@ const GROUP_FILTERS_DEFAULT: GroupFeedFilters = {
   groupIds: [],
 }
 
+const RULESET_VALUES: RulesetFilter[] = ['osu', 'taiko', 'catch', 'mania']
+const MAP_EVENT_TYPE_VALUES: MapEventTypeFilter[] = [
+  'nominate',
+  'nomination_reset',
+  'qualify',
+  'disqualify',
+  'rank',
+  'unrank',
+]
+
+const RULESET_SET = new Set<RulesetFilter>(RULESET_VALUES)
+const MAP_EVENT_TYPE_SET = new Set<MapEventTypeFilter>(MAP_EVENT_TYPE_VALUES)
+
+const parseRuleset = (value: string | null): RulesetFilter | null => {
+  if (!value) {
+    return null
+  }
+
+  return RULESET_SET.has(value as RulesetFilter) ? (value as RulesetFilter) : null
+}
+
+const parseMapEventTypes = (value: string | null): MapEventTypeFilter[] => {
+  if (!value) {
+    return []
+  }
+
+  const unique = new Set<MapEventTypeFilter>()
+  for (const raw of value.split(',')) {
+    const eventType = raw.trim() as MapEventTypeFilter
+    if (MAP_EVENT_TYPE_SET.has(eventType)) {
+      unique.add(eventType)
+    }
+  }
+
+  return MAP_EVENT_TYPE_VALUES.filter((eventType) => unique.has(eventType))
+}
+
+const parseGroupIds = (value: string | null): number[] => {
+  if (!value) {
+    return []
+  }
+
+  const unique = new Set<number>()
+  for (const raw of value.split(',')) {
+    const groupId = Number.parseInt(raw.trim(), 10)
+    if (Number.isInteger(groupId) && groupId > 0) {
+      unique.add(groupId)
+    }
+  }
+
+  return [...unique].sort((a, b) => a - b)
+}
+
+const readInitialFiltersFromUrl = (): {
+  activeFeed: ActiveFeed
+  mapFilters: MapFeedFilters
+  groupFilters: GroupFeedFilters
+} => {
+  if (typeof window === 'undefined') {
+    return {
+      activeFeed: 'map',
+      mapFilters: MAP_FILTERS_DEFAULT,
+      groupFilters: GROUP_FILTERS_DEFAULT,
+    }
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  const feedParam = params.get('feed')
+  const activeFeed: ActiveFeed = feedParam === 'group' ? 'group' : 'map'
+
+  const mapText = params.get('mq')?.trim() ?? ''
+
+  return {
+    activeFeed,
+    mapFilters: {
+      ruleset: parseRuleset(params.get('mr')),
+      eventTypes: parseMapEventTypes(params.get('me')),
+      text: mapText,
+    },
+    groupFilters: {
+      playmode: parseRuleset(params.get('gp')),
+      groupIds: parseGroupIds(params.get('gg')),
+    },
+  }
+}
+
+const INITIAL_URL_STATE = readInitialFiltersFromUrl()
+
 export function useFeedEvents() {
-  const [activeFeed, setActiveFeed] = useState<ActiveFeed>('map')
+  const [activeFeed, setActiveFeed] = useState<ActiveFeed>(
+    INITIAL_URL_STATE.activeFeed,
+  )
   const [mapState, setMapState] = useState<FeedState>(FEED_STATE_DEFAULT)
   const [groupState, setGroupState] = useState<FeedState>(FEED_STATE_DEFAULT)
   const [mapFilters, setMapFilters] = useState<MapFeedFilters>(
-    MAP_FILTERS_DEFAULT,
+    INITIAL_URL_STATE.mapFilters,
   )
   const [groupFilters, setGroupFilters] = useState<GroupFeedFilters>(
-    GROUP_FILTERS_DEFAULT,
+    INITIAL_URL_STATE.groupFilters,
   )
 
   const mapRef = useRef(mapState)
@@ -251,6 +343,48 @@ export function useFeedEvents() {
       window.clearInterval(intervalId)
     }
   }, [activeFeed, pollFeed])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const params = new URLSearchParams()
+    params.set('feed', activeFeed)
+
+    if (mapFilters.ruleset) {
+      params.set('mr', mapFilters.ruleset)
+    }
+
+    if (mapFilters.eventTypes.length > 0) {
+      params.set('me', mapFilters.eventTypes.join(','))
+    }
+
+    const mapText = mapFilters.text.trim()
+    if (mapText) {
+      params.set('mq', mapText)
+    }
+
+    if (groupFilters.playmode) {
+      params.set('gp', groupFilters.playmode)
+    }
+
+    if (groupFilters.groupIds.length > 0) {
+      params.set('gg', groupFilters.groupIds.join(','))
+    }
+
+    const nextQuery = params.toString()
+    const currentQuery = window.location.search.startsWith('?')
+      ? window.location.search.slice(1)
+      : window.location.search
+
+    if (nextQuery === currentQuery) {
+      return
+    }
+
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`
+    window.history.replaceState(window.history.state, '', nextUrl)
+  }, [activeFeed, groupFilters.groupIds, groupFilters.playmode, mapFilters.eventTypes, mapFilters.ruleset, mapFilters.text])
 
   const visibleItems = useMemo(() => {
     return activeFeed === 'map' ? mapState.items : groupState.items

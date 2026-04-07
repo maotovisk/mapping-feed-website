@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import preact from '@preact/preset-vite'
+import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -10,6 +11,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       preact(),
+      tailwindcss(),
       {
         name: 'invite-redirect',
         configureServer(server) {
