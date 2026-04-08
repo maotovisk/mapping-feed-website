@@ -1,4 +1,5 @@
 import type { CSSProperties } from "preact";
+import { memo } from "preact/compat";
 import rulesetCatchIcon from "../../assets/icons/RulesetCatch.png";
 import rulesetManiaIcon from "../../assets/icons/RulesetMania.png";
 import rulesetOsuIcon from "../../assets/icons/RulesetOsu.png";
@@ -18,7 +19,6 @@ import {
 
 interface FeedCardProps {
   event: FeedEventViewEntryDto;
-  index: number;
 }
 
 function getGroupRelation(
@@ -115,7 +115,7 @@ const buildHistoryStyle = (color: string): CSSProperties => {
   };
 };
 
-export function FeedCard({ event, index }: FeedCardProps) {
+function FeedCardComponent({ event }: FeedCardProps) {
   const theme = getEventTheme(event.eventType);
   const relative = formatRelativeTime(event.createdAt);
   const createdTime = event.createdAt
@@ -135,16 +135,16 @@ export function FeedCard({ event, index }: FeedCardProps) {
   const mapperHref = mapData?.mapperUserId
     ? `https://osu.ppy.sh/users/${mapData.mapperUserId}`
     : null;
-  const cardBackground = mapData
-    ? `url("${buildBeatmapCoverCardUrl(mapData.setId)}"), url("${buildBeatmapLegacyThumbnailUrl(mapData.setId)}")`
-    : "none";
+  const coverImageUrl = mapData ? buildBeatmapCoverCardUrl(mapData.setId) : null;
+  const fallbackCoverImageUrl = mapData
+    ? buildBeatmapLegacyThumbnailUrl(mapData.setId)
+    : null;
 
   const cardStyle = {
     borderColor: `color-mix(in srgb, ${theme.color} 50%, transparent)`,
     background: mapData
       ? `linear-gradient(128deg, color-mix(in srgb, ${theme.color} 30%, rgba(7, 16, 40, 0.96)) 0%, rgba(5, 12, 31, 0.92) 76%), rgba(7, 16, 38, 0.94)`
       : `linear-gradient(135deg, color-mix(in srgb, ${theme.color} 18%, rgba(8, 17, 42, 0.95)) 0%, rgba(6, 13, 32, 0.95) 70%), rgba(7, 16, 38, 0.94)`,
-    animationDelay: `${Math.min(index * 45, 500)}ms`,
   } as CSSProperties;
 
   const imageOverlayStyle = {
@@ -156,7 +156,7 @@ export function FeedCard({ event, index }: FeedCardProps) {
 
   const lineStyle = {
     background: theme.color,
-    boxShadow: `0 0 24px color-mix(in srgb, ${theme.color} 64%, transparent)`,
+    boxShadow: `0 0 18px color-mix(in srgb, ${theme.color} 54%, transparent)`,
   } as CSSProperties;
 
   const eventIconStyle = {
@@ -200,19 +200,36 @@ export function FeedCard({ event, index }: FeedCardProps) {
 
   return (
     <article
-      class="group relative overflow-hidden rounded-[18px] border px-4 py-4 pl-[18px] shadow-[0_12px_30px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(178,194,255,0.08)] transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0_18px_36px_rgba(0,0,0,0.45)] animate-[card-enter_820ms_cubic-bezier(0.16,1,0.3,1)_both]"
+      class="feed-card-shell group relative overflow-hidden rounded-[18px] border px-4 py-4 pl-[18px]"
       style={cardStyle}
+      data-feed-card="true"
       role="link"
       tabIndex={0}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
     >
-      {mapData && (
-        <div
-          class="pointer-events-none absolute inset-0 z-0 bg-cover bg-center opacity-95 transition-opacity duration-200 group-hover:opacity-100"
-          style={{ backgroundImage: cardBackground }}
+      {mapData && coverImageUrl && (
+        <img
+          class="feed-card-cover-media pointer-events-none absolute inset-0 z-0 h-full w-full object-cover object-center"
+          src={coverImageUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={(event) => {
+            if (!fallbackCoverImageUrl) {
+              return;
+            }
+
+            const image = event.currentTarget as HTMLImageElement;
+            if (image.dataset.fallbackApplied === "true") {
+              return;
+            }
+
+            image.dataset.fallbackApplied = "true";
+            image.src = fallbackCoverImageUrl;
+          }}
           aria-hidden="true"
-        ></div>
+        />
       )}
       <div
         class="pointer-events-none absolute inset-0 z-[1]"
@@ -324,6 +341,7 @@ export function FeedCard({ event, index }: FeedCardProps) {
                     src={event.actor.avatarUrl}
                     alt=""
                     loading="lazy"
+                    decoding="async"
                     width="22"
                     height="22"
                   />
@@ -362,6 +380,7 @@ export function FeedCard({ event, index }: FeedCardProps) {
                   src={groupAvatarUrl}
                   alt=""
                   loading="lazy"
+                  decoding="async"
                   width="34"
                   height="34"
                 />
@@ -396,3 +415,5 @@ export function FeedCard({ event, index }: FeedCardProps) {
     </article>
   );
 }
+
+export const FeedCard = memo(FeedCardComponent);

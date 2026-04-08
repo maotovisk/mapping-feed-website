@@ -1,17 +1,16 @@
 import type { CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import rulesetCatchIcon from "./assets/icons/RulesetCatch.png";
-import rulesetManiaIcon from "./assets/icons/RulesetMania.png";
-import rulesetOsuIcon from "./assets/icons/RulesetOsu.png";
-import rulesetTaikoIcon from "./assets/icons/RulesetTaiko.png";
-import {
-  KNOWN_USER_GROUPS,
-  getKnownUserGroupById,
-} from "./constants/user-groups";
-import { TEXT_STYLE } from "./constants/typography";
 import { Code2, GitBranch, MessageCircle } from "lucide-preact";
-import { FeedCard } from "./components/feed/feed-card";
-import { AppIcon } from "./components/icons/app-icon";
+import { FeedList } from "./components/feed/feed-list";
+import { FeedSwitch } from "./components/filters/feed-switch";
+import { MultiSelectDropdown } from "./components/filters/multi-select-dropdown";
+import { RulesetSelector } from "./components/filters/ruleset-selector";
+import { AnimatedBackground } from "./components/layout/animated-background";
+import { FeedLoadingState } from "./components/layout/feed-loading-state";
+import { LiveStatusBadge } from "./components/layout/live-status-badge";
+import { MAP_EVENT_TYPE_OPTIONS, MAP_EVENT_TYPE_ORDER, RULESET_OPTIONS } from "./constants/filters";
+import { KNOWN_USER_GROUPS, getKnownUserGroupById } from "./constants/user-groups";
+import { TEXT_STYLE } from "./constants/typography";
 import { useFeedEvents } from "./hooks/use-feed-events";
 import type { MapEventTypeFilter, RulesetFilter } from "./types/feed";
 import { eventKey } from "./utils/feed-utils";
@@ -23,158 +22,7 @@ const BACKEND_REPO_URL =
 const FRONTEND_REPO_URL =
   (import.meta.env.VITE_FRONTEND_REPO_URL as string | undefined)?.trim() ||
   "https://github.com/maotovisk/mappingfeed-website";
-
-const RULESET_OPTIONS: Array<{
-  value: RulesetFilter;
-  label: string;
-  iconSrc: string;
-}> = [
-  {
-    value: "osu",
-    label: "osu",
-    iconSrc: rulesetOsuIcon,
-  },
-  {
-    value: "taiko",
-    label: "taiko",
-    iconSrc: rulesetTaikoIcon,
-  },
-  {
-    value: "catch",
-    label: "catch",
-    iconSrc: rulesetCatchIcon,
-  },
-  {
-    value: "mania",
-    label: "mania",
-    iconSrc: rulesetManiaIcon,
-  },
-];
-
-const MAP_EVENT_TYPE_OPTIONS: Array<{
-  value: MapEventTypeFilter;
-  label: string;
-}> = [
-  {
-    value: "nominate",
-    label: "Nomination",
-  },
-  {
-    value: "nomination_reset",
-    label: "Nomination Reset",
-  },
-  {
-    value: "qualify",
-    label: "Qualified",
-  },
-  {
-    value: "disqualify",
-    label: "Disqualified",
-  },
-  {
-    value: "rank",
-    label: "Ranked",
-  },
-  {
-    value: "unrank",
-    label: "Unranked",
-  },
-];
-
-const MAP_EVENT_TYPE_ORDER = new Map(
-  MAP_EVENT_TYPE_OPTIONS.map((option, index) => [option.value, index]),
-);
-
-const BACKGROUND_AMBIENT_ORBS = [
-  {
-    left: 8,
-    top: 16,
-    size: 260,
-    opacity: 0.36,
-    driftX: 26,
-    driftY: -18,
-    duration: 38,
-    pulseDuration: 32,
-    delay: -6,
-  },
-  {
-    left: 22,
-    top: 74,
-    size: 300,
-    opacity: 0.28,
-    driftX: -30,
-    driftY: 22,
-    duration: 44,
-    pulseDuration: 36,
-    delay: -13,
-  },
-  {
-    left: 34,
-    top: 34,
-    size: 220,
-    opacity: 0.33,
-    driftX: 18,
-    driftY: 24,
-    duration: 34,
-    pulseDuration: 30,
-    delay: -9,
-  },
-  {
-    left: 48,
-    top: 82,
-    size: 280,
-    opacity: 0.31,
-    driftX: -24,
-    driftY: -14,
-    duration: 41,
-    pulseDuration: 39,
-    delay: -16,
-  },
-  {
-    left: 62,
-    top: 20,
-    size: 320,
-    opacity: 0.34,
-    driftX: 34,
-    driftY: 12,
-    duration: 46,
-    pulseDuration: 35,
-    delay: -11,
-  },
-  {
-    left: 74,
-    top: 58,
-    size: 250,
-    opacity: 0.27,
-    driftX: -22,
-    driftY: 20,
-    duration: 37,
-    pulseDuration: 33,
-    delay: -4,
-  },
-  {
-    left: 88,
-    top: 30,
-    size: 290,
-    opacity: 0.3,
-    driftX: 20,
-    driftY: -20,
-    duration: 43,
-    pulseDuration: 40,
-    delay: -19,
-  },
-  {
-    left: 14,
-    top: 48,
-    size: 240,
-    opacity: 0.29,
-    driftX: -16,
-    driftY: -24,
-    duration: 35,
-    pulseDuration: 31,
-    delay: -8,
-  },
-] as const;
+const PRELOADER_EXIT_MS = 280;
 
 const formatGroupTag = (
   groupId: number,
@@ -209,7 +57,6 @@ export function App() {
     setGroupFilters,
   } = useFeedEvents();
 
-  const [cursorGlow, setCursorGlow] = useState({ x: 0, y: 0 });
   const [mapEventDropdownOpen, setMapEventDropdownOpen] = useState(false);
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -219,7 +66,6 @@ export function App() {
       : document.visibilityState === "visible" && document.hasFocus(),
   );
 
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const mapDropdownRef = useRef<HTMLDivElement | null>(null);
   const groupDropdownRef = useRef<HTMLDivElement | null>(null);
   const baseTitleRef = useRef("");
@@ -231,76 +77,37 @@ export function App() {
     map: false,
     group: false,
   });
+  const shouldShowInitialLoader =
+    initialLoading && !activeError && visibleItems.length === 0;
+  const [showInitialLoader, setShowInitialLoader] = useState(
+    shouldShowInitialLoader,
+  );
+  const [initialLoaderExiting, setInitialLoaderExiting] = useState(false);
 
   useEffect(() => {
-    setCursorGlow({
-      x: window.innerWidth * 0.5,
-      y: window.innerHeight * 0.45,
-    });
-
-    let animationFrame = 0;
-
-    const handlePointerMove = (event: PointerEvent) => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
-
-      animationFrame = requestAnimationFrame(() => {
-        setCursorGlow({ x: event.clientX, y: event.clientY });
-      });
-    };
-
-    window.addEventListener("pointermove", handlePointerMove, {
-      passive: true,
-    });
-
-    return () => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
-      window.removeEventListener("pointermove", handlePointerMove);
-    };
-  }, []);
-
-  useEffect(() => {
-    const sentinel = loadMoreRef.current;
-    if (!sentinel || !activeHasMore) {
+    if (shouldShowInitialLoader) {
+      setShowInitialLoader(true);
+      setInitialLoaderExiting(false);
       return;
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries[0]?.isIntersecting) {
-          return;
-        }
+    if (!showInitialLoader) {
+      return;
+    }
 
-        if (activeLoadingMore || initialLoading) {
-          return;
-        }
+    setInitialLoaderExiting(true);
+    const timeoutId = window.setTimeout(() => {
+      setShowInitialLoader(false);
+      setInitialLoaderExiting(false);
+    }, PRELOADER_EXIT_MS);
 
-        void loadOlderForActiveFeed();
-      },
-      {
-        root: null,
-        rootMargin: "700px 0px 700px 0px",
-        threshold: 0.01,
-      },
-    );
-
-    observer.observe(sentinel);
     return () => {
-      observer.disconnect();
+      window.clearTimeout(timeoutId);
     };
-  }, [
-    activeHasMore,
-    activeLoadingMore,
-    initialLoading,
-    loadOlderForActiveFeed,
-  ]);
+  }, [shouldShowInitialLoader, showInitialLoader]);
 
   useEffect(() => {
-    const hasOpenDropdown = mapEventDropdownOpen || groupDropdownOpen;
-    if (!hasOpenDropdown) {
+    if (!mapEventDropdownOpen && !groupDropdownOpen) {
       return;
     }
 
@@ -419,19 +226,13 @@ export function App() {
       unreadCount > 0 ? `(${unreadCount}) ${baseTitle}` : baseTitle;
   }, [unreadCount]);
 
-  const cursorGlowStyle = {
-    background: `
-      radial-gradient(300px circle at ${cursorGlow.x}px ${cursorGlow.y}px, rgba(47, 69, 146, 0.28), rgba(16, 28, 72, 0.2) 40%, transparent 72%),
-      radial-gradient(500px circle at ${cursorGlow.x}px ${cursorGlow.y}px, rgba(24, 43, 104, 0.2), transparent 72%)
-    `,
-  } as CSSProperties;
-
   const gridLayerStyle = {
     backgroundImage:
       "linear-gradient(rgba(95, 117, 178, 0.065) 1px, transparent 1px), linear-gradient(90deg, rgba(95, 117, 178, 0.065) 1px, transparent 1px)",
-    backgroundSize: "76px 76px",
+    backgroundSize: "92px 92px",
     maskImage:
-      "linear-gradient(180deg, rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.92) 24%, rgba(0, 0, 0, 0.92) 84%, rgba(0, 0, 0, 0.18))",
+      "linear-gradient(180deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.9) 24%, rgba(0, 0, 0, 0.9) 84%, rgba(0, 0, 0, 0.2))",
+    opacity: 0.4,
   } as CSSProperties;
 
   const menuStyle = {
@@ -535,6 +336,15 @@ export function App() {
       })
       .slice(0, 2);
   }, [groupFilters.groupIds, groupNameById]);
+
+  const selectedMapEventTypes = useMemo(
+    () => new Set(mapFilters.eventTypes),
+    [mapFilters.eventTypes],
+  );
+  const selectedGroupIds = useMemo(
+    () => new Set(groupFilters.groupIds),
+    [groupFilters.groupIds],
+  );
 
   const handleMapRulesetChange = (ruleset: RulesetFilter | null) => {
     setMapFilters((previous) => {
@@ -652,15 +462,6 @@ export function App() {
     activeFeed === "map" ? mapFiltersActive : groupFiltersActive;
   const activeRuleset =
     activeFeed === "map" ? mapFilters.ruleset : groupFilters.playmode;
-  const activeRulesetIndex = activeRuleset
-    ? RULESET_OPTIONS.findIndex((option) => option.value === activeRuleset) + 1
-    : 0;
-  const rulesetThumbStyle = {
-    transform: `translateX(${Math.max(activeRulesetIndex, 0) * 36}px)`,
-  } as CSSProperties;
-  const feedThumbStyle = {
-    transform: `translateX(${activeFeed === "group" ? "100%" : "0%"})`,
-  } as CSSProperties;
 
   const lastSyncTooltip = useMemo(() => {
     if (typeof activeLastSyncedAt !== "number") {
@@ -669,47 +470,22 @@ export function App() {
 
     return `Last fetch: ${new Date(activeLastSyncedAt).toLocaleString()}`;
   }, [activeLastSyncedAt]);
+  const canRevealFeedList = visibleItems.length > 0 && !showInitialLoader;
 
   return (
-    <div class="relative min-h-screen overflow-hidden px-5 pb-14 pt-10 max-[960px]:px-3 max-[960px]:pt-6">
+    <div
+      class="relative min-h-screen overflow-hidden px-5 pb-14 pt-10 max-[960px]:px-3 max-[960px]:pt-6"
+    >
+      <AnimatedBackground />
       <div
-        class="animated-bg-aurora pointer-events-none fixed inset-0 -z-20"
-        aria-hidden="true"
-      ></div>
-      <div
-        class="animated-bg-cursor-orb pointer-events-none fixed inset-0 -z-10 opacity-95"
-        style={cursorGlowStyle}
-        aria-hidden="true"
-      ></div>
-      <div class="animated-bg-orb-field fixed inset-0 -z-10" aria-hidden="true">
-        {BACKGROUND_AMBIENT_ORBS.map((orb, index) => (
-          <span
-            key={`ambient-orb-${index}`}
-            class="animated-bg-floating-orb"
-            style={
-              {
-                left: `${orb.left}%`,
-                top: `${orb.top}%`,
-                width: `${orb.size}px`,
-                height: `${orb.size}px`,
-                "--orb-opacity": `${orb.opacity}`,
-                "--orb-drift-x": `${orb.driftX}px`,
-                "--orb-drift-y": `${orb.driftY}px`,
-                "--orb-duration": `${orb.duration}s`,
-                "--orb-pulse-duration": `${orb.pulseDuration}s`,
-                "--orb-delay": `${orb.delay}s`,
-              } as CSSProperties
-            }
-          ></span>
-        ))}
-      </div>
-      <div
-        class="pointer-events-none fixed inset-0 -z-10 opacity-56"
+        class="feed-grid-layer pointer-events-none fixed inset-0 -z-10"
         style={gridLayerStyle}
         aria-hidden="true"
       ></div>
 
-      <header class="relative z-30 mx-auto mb-4 flex w-full max-w-[1100px] animate-[header-enter_920ms_cubic-bezier(0.16,1,0.3,1)_both] flex-col items-center gap-3.5">
+      <header
+        class="relative z-30 mx-auto mb-4 flex w-full max-w-[1100px] flex-col items-center gap-3.5 animate-[header-enter_920ms_cubic-bezier(0.16,1,0.3,1)_both]"
+      >
         <h1
           class={`m-0 text-center font-[var(--font-display)] ${TEXT_STYLE.heroTitle} text-[#ebf2ff]`}
         >
@@ -760,299 +536,70 @@ export function App() {
         </div>
 
         <div class="w-full">
-          <div
-            class="group/feed relative mx-auto grid w-fit min-w-[230px] grid-cols-2 overflow-hidden rounded-full border border-[#b3ccff33] bg-[#081023c7] p-1.5 transition-colors duration-300 hover:border-[#c2d4ff52]"
-            role="tablist"
-            aria-label="Feed Filter"
-          >
-            <span
-              class="pointer-events-none absolute bottom-1.5 left-1.5 top-1.5 z-0 w-[calc((100%-0.75rem)/2)] rounded-full bg-gradient-to-r from-[#5285ff66] to-[#8355ff66] shadow-[inset_0_1px_0_rgba(229,236,255,0.14),0_8px_20px_rgba(36,68,147,0.24)] transition-transform duration-300"
-              style={feedThumbStyle}
-              aria-hidden="true"
-            ></span>
-            <button
-              type="button"
-              role="tab"
-              class={`relative z-10 inline-flex min-w-[106px] items-center justify-center gap-2 rounded-full px-4 py-2.5 transition-colors ${TEXT_STYLE.tabLabel} ${
-                activeFeed === "map"
-                  ? "text-[#f4f7ff]"
-                  : "text-[#d5e1ff] hover:bg-[#88a7f61a] hover:text-[#eaf1ff]"
-              }`}
-              aria-selected={activeFeed === "map"}
-              onClick={() => setActiveFeed("map")}
-            >
-              <AppIcon name="map" className="h-4 w-4" />
-              Maps
-            </button>
-
-            <button
-              type="button"
-              role="tab"
-              class={`relative z-10 inline-flex min-w-[106px] items-center justify-center gap-2 rounded-full px-4 py-2.5 transition-colors ${TEXT_STYLE.tabLabel} ${
-                activeFeed === "group"
-                  ? "text-[#f4f7ff]"
-                  : "text-[#d5e1ff] hover:bg-[#88a7f61a] hover:text-[#eaf1ff]"
-              }`}
-              aria-selected={activeFeed === "group"}
-              onClick={() => setActiveFeed("group")}
-            >
-              <AppIcon name="users" className="h-4 w-4" />
-              Groups
-            </button>
-          </div>
+          <FeedSwitch activeFeed={activeFeed} onChange={setActiveFeed} />
         </div>
 
         <section class="w-full" aria-label="Route filters">
           <div class="flex w-full items-start gap-2 max-[960px]:flex-wrap">
             {activeFeed === "map" ? (
-              <div
-                class="relative z-40 mr-auto min-w-0 w-full max-w-[430px] flex-1 max-[960px]:max-w-none max-[960px]:basis-full"
-                ref={mapDropdownRef}
-              >
-                <button
-                  type="button"
-                  class="flex w-full items-center gap-2.5 rounded-xl border border-[#8eafff57] bg-[#08122ccc] px-3 py-2.5 text-[#dce8ff] transition-colors hover:border-[#abc5ff94]"
-                  onClick={() => {
-                    setMapEventDropdownOpen((previous) => !previous);
-                    setGroupDropdownOpen(false);
-                  }}
-                  aria-expanded={mapEventDropdownOpen}
-                >
-                  <span class={`shrink-0 text-[#a7bde8] ${TEXT_STYLE.filterLabel}`}>
-                    Event type
-                  </span>
-
-                  {mapFilters.eventTypes.length > 0 ? (
-                    <span class="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-                      {mapEventTypeLabels.map((label, index) => (
-                        <span
-                          class="inline-flex max-w-[170px] items-center overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-[#8eafff66] bg-[#416ad033] px-2.5 py-[3px] text-xs font-bold text-[#e7efff]"
-                          key={`${label}:${index}`}
-                        >
-                          {label}
-                        </span>
-                      ))}
-                      {mapFilters.eventTypes.length >
-                        mapEventTypeLabels.length && (
-                        <span class="inline-flex items-center rounded-full border border-[#93ace04d] bg-[#506dac33] px-2.5 py-[3px] text-xs font-bold text-[#b6c9ee]">
-                          +
-                          {mapFilters.eventTypes.length -
-                            mapEventTypeLabels.length}
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    <span class={`min-w-0 flex-1 text-left text-[#dce8ff] ${TEXT_STYLE.body}`}>
-                      All event types
-                    </span>
-                  )}
-                  <span
-                    class="shrink-0 text-sm text-[#9db5e9]"
-                    aria-hidden="true"
-                  >
-                    ▾
-                  </span>
-                </button>
-
-                {mapEventDropdownOpen && (
-                  <div
-                    class="absolute right-0 top-[calc(100%+8px)] z-[70] flex w-[min(360px,86vw)] origin-top-right animate-[dropdown-shell-in_540ms_cubic-bezier(0.16,1,0.3,1)] flex-col gap-2 overflow-y-auto rounded-[13px] border border-[#93b3ff5c] bg-[linear-gradient(180deg,rgba(11,21,48,0.992),rgba(8,16,37,0.992))] p-2 shadow-[0_18px_36px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(228,237,255,0.1)] backdrop-blur-[8px] max-[960px]:left-0 max-[960px]:right-0 max-[960px]:w-auto"
-                    role="listbox"
-                    aria-label="Map event type filter"
-                    style={menuStyle}
-                  >
-                    {MAP_EVENT_TYPE_OPTIONS.map((option) => {
-                      const selected = mapFilters.eventTypes.includes(
-                        option.value,
-                      );
-
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          class={`flex min-h-11 w-full animate-[dropdown-item-in_460ms_cubic-bezier(0.18,0.84,0.24,1)] items-center justify-between gap-2.5 rounded-[10px] border px-3.5 py-3 text-left text-[#d7e5ff] transition-colors ${
-                            selected
-                              ? "border-[#8daeff80] bg-[linear-gradient(110deg,rgba(76,123,241,0.24),rgba(135,86,255,0.2))]"
-                              : "border-transparent bg-transparent hover:bg-[#6e90e324]"
-                          }`}
-                          onClick={() => {
-                            handleMapEventTypeToggle(option.value);
-                          }}
-                        >
-                          <span class={`text-[#edf3ff] ${TEXT_STYLE.menuItem}`}>
-                            {option.label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <MultiSelectDropdown
+                containerRef={mapDropdownRef}
+                label="Event type"
+                placeholder="All event types"
+                selectedLabels={mapEventTypeLabels}
+                selectedCount={mapFilters.eventTypes.length}
+                open={mapEventDropdownOpen}
+                onToggleOpen={() => {
+                  setMapEventDropdownOpen((previous) => !previous);
+                  setGroupDropdownOpen(false);
+                }}
+                options={MAP_EVENT_TYPE_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
+                selectedValues={selectedMapEventTypes}
+                onToggleValue={handleMapEventTypeToggle}
+                ariaLabel="Map event type filter"
+                menuStyle={menuStyle}
+              />
             ) : (
-              <div
-                class="relative z-40 mr-auto min-w-0 w-full max-w-[430px] flex-1 max-[960px]:max-w-none max-[960px]:basis-full"
-                ref={groupDropdownRef}
-              >
-                <button
-                  type="button"
-                  class="flex w-full items-center gap-2.5 rounded-xl border border-[#8eafff57] bg-[#08122ccc] px-3 py-2.5 text-[#dce8ff] transition-colors hover:border-[#abc5ff94]"
-                  onClick={() => {
-                    setGroupDropdownOpen((previous) => !previous);
-                    setMapEventDropdownOpen(false);
-                  }}
-                  aria-expanded={groupDropdownOpen}
-                >
-                  <span class={`shrink-0 text-[#a7bde8] ${TEXT_STYLE.filterLabel}`}>
-                    Groups
-                  </span>
-
-                  {groupFilters.groupIds.length > 0 ? (
-                    <span class="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-                      {groupLabels.map((label, index) => (
-                        <span
-                          class="inline-flex max-w-[170px] items-center overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-[#8eafff66] bg-[#416ad033] px-2.5 py-[3px] text-xs font-bold text-[#e7efff]"
-                          key={`${label}:${index}`}
-                        >
-                          {label}
-                        </span>
-                      ))}
-                      {groupFilters.groupIds.length > groupLabels.length && (
-                        <span class="inline-flex items-center rounded-full border border-[#93ace04d] bg-[#506dac33] px-2.5 py-[3px] text-xs font-bold text-[#b6c9ee]">
-                          +{groupFilters.groupIds.length - groupLabels.length}
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    <span class={`min-w-0 flex-1 text-left text-[#dce8ff] ${TEXT_STYLE.body}`}>
-                      All groups
-                    </span>
-                  )}
-                  <span
-                    class="shrink-0 text-sm text-[#9db5e9]"
-                    aria-hidden="true"
-                  >
-                    ▾
-                  </span>
-                </button>
-
-                {groupDropdownOpen && (
-                  <div
-                    class="absolute right-0 top-[calc(100%+8px)] z-[70] flex w-[min(360px,86vw)] origin-top-right animate-[dropdown-shell-in_540ms_cubic-bezier(0.16,1,0.3,1)] flex-col gap-2 overflow-y-auto rounded-[13px] border border-[#93b3ff5c] bg-[linear-gradient(180deg,rgba(11,21,48,0.992),rgba(8,16,37,0.992))] p-2 shadow-[0_18px_36px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(228,237,255,0.1)] backdrop-blur-[8px] max-[960px]:left-0 max-[960px]:right-0 max-[960px]:w-auto"
-                    role="listbox"
-                    aria-label="Group filter"
-                    style={menuStyle}
-                  >
-                    {groupDropdownOptions.length === 0 && (
-                      <p class={`m-0 p-2.5 text-[#9eb2db] ${TEXT_STYLE.body}`}>
-                        No acronym groups available.
-                      </p>
-                    )}
-
-                    {groupDropdownOptions.map((option) => {
-                      const selected = groupFilters.groupIds.includes(
-                        option.groupId,
-                      );
-
-                      return (
-                        <button
-                          key={option.groupId}
-                          type="button"
-                          class={`flex min-h-11 w-full animate-[dropdown-item-in_460ms_cubic-bezier(0.18,0.84,0.24,1)] items-center justify-between gap-2.5 rounded-[10px] border px-3.5 py-3 text-left text-[#d7e5ff] transition-colors ${
-                            selected
-                              ? "border-[#8daeff80] bg-[linear-gradient(110deg,rgba(76,123,241,0.24),rgba(135,86,255,0.2))]"
-                              : "border-transparent bg-transparent hover:bg-[#6e90e324]"
-                          }`}
-                          onClick={() => {
-                            handleGroupIdToggle(option.groupId);
-                          }}
-                        >
-                          <span class={`text-[#edf3ff] ${TEXT_STYLE.menuItem}`}>
-                            {option.groupName}
-                          </span>
-                          <span class="text-xs text-[#9fb7e5]">
-                            #{option.groupId}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <MultiSelectDropdown
+                containerRef={groupDropdownRef}
+                label="Groups"
+                placeholder="All groups"
+                selectedLabels={groupLabels}
+                selectedCount={groupFilters.groupIds.length}
+                open={groupDropdownOpen}
+                onToggleOpen={() => {
+                  setGroupDropdownOpen((previous) => !previous);
+                  setMapEventDropdownOpen(false);
+                }}
+                options={groupDropdownOptions.map((option) => ({
+                  value: option.groupId,
+                  label: option.groupName,
+                  meta: `#${option.groupId}`,
+                }))}
+                selectedValues={selectedGroupIds}
+                onToggleValue={handleGroupIdToggle}
+                ariaLabel="Group filter"
+                menuStyle={menuStyle}
+                emptyMessage="No acronym groups available."
+              />
             )}
 
             <div class="ml-auto inline-flex flex-col items-end justify-end gap-2">
-              <div
-                class="relative inline-grid grid-cols-5 overflow-hidden rounded-[14px] border border-[#94b4ff40] bg-[#081129b8] p-1"
-                role="toolbar"
-                aria-label="Mode Filter"
-              >
-                <span
-                  class="pointer-events-none absolute left-1 top-1 z-0 h-9 w-9 rounded-[10px] bg-[linear-gradient(120deg,rgba(74,132,255,0.34),rgba(134,91,255,0.34))] shadow-[inset_0_1px_0_rgba(231,239,255,0.14),0_6px_16px_rgba(32,65,140,0.24)] transition-transform duration-300"
-                  style={rulesetThumbStyle}
-                  aria-hidden="true"
-                ></span>
-                <button
-                  type="button"
-                  class={`relative z-10 inline-flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors ${
-                    activeFeed === "map"
-                      ? mapFilters.ruleset === null
-                        ? "text-[#f3f7ff]"
-                        : "text-[#bed0fa] hover:bg-[#7f9ee31a] hover:text-[#e2ecff]"
-                      : groupFilters.playmode === null
-                        ? "text-[#f3f7ff]"
-                        : "text-[#bed0fa] hover:bg-[#7f9ee31a] hover:text-[#e2ecff]"
-                  }`}
-                  onClick={() => {
-                    if (activeFeed === "map") {
-                      handleMapRulesetChange(null);
-                      return;
-                    }
+              <RulesetSelector
+                options={RULESET_OPTIONS}
+                selectedRuleset={activeRuleset}
+                onChange={(nextRuleset) => {
+                  if (activeFeed === "map") {
+                    handleMapRulesetChange(nextRuleset);
+                    return;
+                  }
 
-                    handleGroupPlaymodeChange(null);
-                  }}
-                  title="All modes"
-                  aria-label="All modes"
-                >
-                  <AppIcon name="layers" className="h-3.5 w-3.5" />
-                </button>
-
-                {RULESET_OPTIONS.map((option) => {
-                  const isSelected =
-                    activeFeed === "map"
-                      ? mapFilters.ruleset === option.value
-                      : groupFilters.playmode === option.value;
-
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      class={`relative z-10 inline-flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors ${
-                        isSelected
-                          ? "text-[#f3f7ff]"
-                          : "text-[#bed0fa] hover:bg-[#7f9ee31a] hover:text-[#e2ecff]"
-                      }`}
-                      onClick={() => {
-                        if (activeFeed === "map") {
-                          handleMapRulesetChange(option.value);
-                          return;
-                        }
-
-                        handleGroupPlaymodeChange(option.value);
-                      }}
-                      title={option.label}
-                      aria-label={option.label}
-                    >
-                      <img
-                        src={option.iconSrc}
-                        alt=""
-                        class="h-[18px] w-[18px] rounded-full shadow-[0_0_0_1px_rgba(178,202,255,0.24)]"
-                        width="16"
-                        height="16"
-                      />
-                    </button>
-                  );
-                })}
-              </div>
+                  handleGroupPlaymodeChange(nextRuleset);
+                }}
+              />
 
               {showResetButton && (
                 <button
@@ -1075,10 +622,16 @@ export function App() {
           </p>
         )}
 
-        {initialLoading && visibleItems.length === 0 && (
-          <p class="m-0 rounded-[14px] border border-[#6f9cff47] bg-[#0d163293] px-3.5 py-3 text-sm text-[#d0ddff]">
-            Loading latest events...
-          </p>
+        {showInitialLoader && (
+          <div
+            class={`feed-preloader-stage ${
+              initialLoaderExiting
+                ? "feed-preloader-stage-exit"
+                : "feed-preloader-stage-enter"
+            }`}
+          >
+            <FeedLoadingState variant="initial" />
+          </div>
         )}
 
         {!initialLoading && visibleItems.length === 0 && !activeError && (
@@ -1087,45 +640,23 @@ export function App() {
           </p>
         )}
 
-        <section
-          key={activeFeed}
-          class="flex animate-[tab-content-in_640ms_cubic-bezier(0.16,1,0.3,1)] flex-col gap-3"
-          aria-live="polite"
-        >
-          {visibleItems.map((event, index) => (
-            <FeedCard event={event} key={eventKey(event)} index={index} />
-          ))}
-        </section>
-
-        {activeHasMore && (
-          <div class="h-0.5 w-full" ref={loadMoreRef} aria-hidden="true"></div>
-        )}
-        {activeLoadingMore && (
-          <p class="m-0 px-0 py-2 text-center text-sm text-[#acc0ed]">
-            Loading older events...
-          </p>
+        {canRevealFeedList && (
+          <div
+            key={activeFeed}
+            class="feed-list-shell-enter feed-list-transition feed-list-transition-visible"
+          >
+            <FeedList
+              activeFeed={activeFeed}
+              hasMore={activeHasMore}
+              loadingMore={activeLoadingMore}
+              onLoadMore={loadOlderForActiveFeed}
+              visibleItems={visibleItems}
+            />
+          </div>
         )}
       </main>
 
-      <div
-        class="group/live fixed bottom-[max(12px,env(safe-area-inset-bottom,0px))] right-[clamp(12px,2.2vw,28px)] z-[18] inline-flex min-h-[30px] max-w-[min(92vw,380px)] items-center gap-1.5 rounded-[10px] border border-[#5bb9874d] bg-[#071825c7] px-2.5 py-1.5 text-[#c7f9dd] shadow-[0_6px_16px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(226,255,241,0.08)] backdrop-blur-[6px]"
-        role="status"
-        aria-live="polite"
-        title={lastSyncTooltip}
-      >
-        <span
-          class="h-[7px] w-[7px] shrink-0 rounded-full bg-[#4ade80] shadow-[0_0_0_3px_color-mix(in_srgb,#4ade80_22%,transparent)]"
-          aria-hidden="true"
-        ></span>
-        <span
-          class={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[#c7f9dd] ${TEXT_STYLE.caption}`}
-        >
-          live updated
-        </span>
-        <span class="pointer-events-none absolute bottom-full right-0 z-30 mb-2 whitespace-nowrap rounded-lg border border-[#85d7ab66] bg-[#041120f7] px-2 py-1 text-xs font-semibold text-[#d7ffe8] opacity-0 invisible translate-y-1 transition-all duration-200 ease-out group-hover/live:visible group-hover/live:opacity-100 group-hover/live:translate-y-0">
-          {lastSyncTooltip}
-        </span>
-      </div>
+      <LiveStatusBadge tooltip={lastSyncTooltip} />
     </div>
   );
 }

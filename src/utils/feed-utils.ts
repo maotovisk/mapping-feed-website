@@ -42,13 +42,19 @@ export const mergeEvents = (
 
   const merged = [...current];
   const seen = new Set(current.map(eventKey));
+  let addedNewItem = false;
 
   for (const item of incoming) {
     const key = eventKey(item);
     if (!seen.has(key)) {
       seen.add(key);
       merged.push(item);
+      addedNewItem = true;
     }
+  }
+
+  if (!addedNewItem) {
+    return current;
   }
 
   return sortEventsNewestFirst(merged);
