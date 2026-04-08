@@ -287,8 +287,8 @@ button:disabled,
     pointer-events: none;
     transform: translate3d(0, -10px, 0);
     transition:
-        opacity 260ms ease,
-        transform 260ms ease;
+        opacity 100ms ease,
+        transform 100ms ease;
 }
 
 .feed-list-transition {

@@ -60,7 +60,6 @@ export const INITIAL_LIMIT = 30
 export const PAGE_LIMIT = 45
 export const POLL_LIMIT = 25
 export const POLL_INTERVAL_MS = 30_000
-export const MIN_INITIAL_LOADING_MS = 300
 
 export const FEED_STATE_DEFAULT: FeedState = {
   items: [],

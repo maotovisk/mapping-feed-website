@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import {
   FEED_STATE_DEFAULT,
   INITIAL_LIMIT,
-  MIN_INITIAL_LOADING_MS,
   PAGE_LIMIT,
   POLL_INTERVAL_MS,
   POLL_LIMIT,
@@ -136,11 +135,6 @@ const readInitialFiltersFromUrl = (): {
 
 const INITIAL_URL_STATE = readInitialFiltersFromUrl()
 
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
-
 export function useFeedEvents() {
   const [activeFeed, setActiveFeed] = useState<ActiveFeed>(
     INITIAL_URL_STATE.activeFeed,
@@ -215,7 +209,6 @@ export function useFeedEvents() {
   const loadInitialFeed = useCallback(
     async (feed: FeedKey, filters: MapFeedFilters | GroupFeedFilters) => {
       const requestVersion = bumpRequestVersion(feed)
-      const startedAt = Date.now()
 
       patchFeedState(feed, () => ({
         ...FEED_STATE_DEFAULT,
@@ -227,12 +220,6 @@ export function useFeedEvents() {
           limit: INITIAL_LIMIT,
           filters,
         })
-
-        const elapsed = Date.now() - startedAt
-        const remaining = Math.max(MIN_INITIAL_LOADING_MS - elapsed, 0)
-        if (remaining > 0) {
-          await sleep(remaining)
-        }
 
         if (getRequestVersion(feed) !== requestVersion) {
           return
@@ -246,12 +233,6 @@ export function useFeedEvents() {
           lastSyncedAt: Date.now(),
         }))
       } catch (error) {
-        const elapsed = Date.now() - startedAt
-        const remaining = Math.max(MIN_INITIAL_LOADING_MS - elapsed, 0)
-        if (remaining > 0) {
-          await sleep(remaining)
-        }
-
         if (getRequestVersion(feed) !== requestVersion) {
           return
         }

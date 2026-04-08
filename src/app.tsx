@@ -22,8 +22,8 @@ const BACKEND_REPO_URL =
 const FRONTEND_REPO_URL =
   (import.meta.env.VITE_FRONTEND_REPO_URL as string | undefined)?.trim() ||
   "https://github.com/maotovisk/mappingfeed-website";
-const PRELOADER_EXIT_MS = 280;
 const MOBILE_LAYOUT_QUERY = "(max-width: 960px)";
+const PRELOADER_EXIT_MS = 100;
 
 const formatGroupTag = (
   groupId: number,
