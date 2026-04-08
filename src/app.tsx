@@ -23,6 +23,7 @@ const FRONTEND_REPO_URL =
   (import.meta.env.VITE_FRONTEND_REPO_URL as string | undefined)?.trim() ||
   "https://github.com/maotovisk/mappingfeed-website";
 const PRELOADER_EXIT_MS = 280;
+const MOBILE_LAYOUT_QUERY = "(max-width: 960px)";
 
 const formatGroupTag = (
   groupId: number,
@@ -65,6 +66,11 @@ export function App() {
       ? true
       : document.visibilityState === "visible" && document.hasFocus(),
   );
+  const [showLiveStatusBadge, setShowLiveStatusBadge] = useState(() =>
+    typeof window === "undefined"
+      ? true
+      : !window.matchMedia(MOBILE_LAYOUT_QUERY).matches,
+  );
 
   const mapDropdownRef = useRef<HTMLDivElement | null>(null);
   const groupDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -105,6 +111,24 @@ export function App() {
       window.clearTimeout(timeoutId);
     };
   }, [shouldShowInitialLoader, showInitialLoader]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(MOBILE_LAYOUT_QUERY);
+    const syncLiveStatusBadgeVisibility = () => {
+      setShowLiveStatusBadge(!mediaQuery.matches);
+    };
+
+    syncLiveStatusBadgeVisibility();
+    mediaQuery.addEventListener("change", syncLiveStatusBadgeVisibility);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncLiveStatusBadgeVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mapEventDropdownOpen && !groupDropdownOpen) {
@@ -464,21 +488,25 @@ export function App() {
     activeFeed === "map" ? mapFilters.ruleset : groupFilters.playmode;
 
   const lastSyncTooltip = useMemo(() => {
+    if (!showLiveStatusBadge) {
+      return "";
+    }
+
     if (typeof activeLastSyncedAt !== "number") {
       return "Last fetch: --";
     }
 
     return `Last fetch: ${new Date(activeLastSyncedAt).toLocaleString()}`;
-  }, [activeLastSyncedAt]);
+  }, [activeLastSyncedAt, showLiveStatusBadge]);
   const canRevealFeedList = visibleItems.length > 0 && !showInitialLoader;
 
   return (
     <div
-      class="relative min-h-screen overflow-hidden px-5 pb-14 pt-10 max-[960px]:px-3 max-[960px]:pt-6"
+      class="relative isolate min-h-screen overflow-hidden px-5 pb-14 pt-10 max-[960px]:px-3 max-[960px]:pt-6"
     >
       <AnimatedBackground />
       <div
-        class="feed-grid-layer pointer-events-none fixed inset-0 -z-10"
+        class="feed-grid-layer pointer-events-none fixed inset-0 z-[2]"
         style={gridLayerStyle}
         aria-hidden="true"
       ></div>
@@ -656,7 +684,7 @@ export function App() {
         )}
       </main>
 
-      <LiveStatusBadge tooltip={lastSyncTooltip} />
+      {showLiveStatusBadge ? <LiveStatusBadge tooltip={lastSyncTooltip} /> : null}
     </div>
   );
 }

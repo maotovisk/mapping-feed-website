@@ -37,10 +37,10 @@ export function AnimatedBackground() {
   return (
     <>
       <div
-        class="animated-bg-aurora pointer-events-none fixed inset-0 -z-20"
+        class="animated-bg-aurora pointer-events-none fixed inset-0 z-0"
         aria-hidden="true"
       ></div>
-      <div class="animated-bg-orb-field fixed inset-0 -z-10" aria-hidden="true">
+      <div class="animated-bg-orb-field fixed inset-0 z-[1]" aria-hidden="true">
         {BACKGROUND_ORBS.map((orb, index) => (
           <span
             key={`ambient-orb-${index}`}
